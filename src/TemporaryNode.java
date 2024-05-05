@@ -51,6 +51,7 @@ public class TemporaryNode implements TemporaryNodeInterface {
         try {
             this.startingNodeName = startingNodeName;
             this.startingNodeAddress = startingNodeAddress;
+
             Socket socket = new Socket(startingNodeAddress.split(":")[0], Integer.parseInt(startingNodeAddress.split(":")[1]));
             System.out.println("TemporaryNode connecting to " + startingNodeAddress);
 
@@ -71,22 +72,27 @@ public class TemporaryNode implements TemporaryNodeInterface {
 
     public boolean store(String key, String value) {
         try {
-            List<NodeInfo> closestFullNodes = findClosestFullNodes(key);
-            for (NodeInfo nodeInfo : closestFullNodes) {
-                Socket socket = new Socket(nodeInfo.getNodeAddress().split(":")[0], Integer.parseInt(nodeInfo.getNodeAddress().split(":")[1]));
-                PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            // Connect to the FullNode
+            Socket socket = new Socket(startingNodeAddress.split(":")[0], Integer.parseInt(startingNodeAddress.split(":")[1]));
+            System.out.println("TempNode connecting to " + startingNodeAddress);
+            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-                writer.println("PUT? " + key.split("\n").length + " " + value.split("\n").length);
-                writer.println(key);
-                writer.println(value);
+            // Send PUT request with key and value
+            writer.println("PUT? " + key.split("\n").length + " " + value.split("\n").length);
+            writer.println(key);
+            writer.println(value);
 
-                String response = reader.readLine();
-                if (response.equals("SUCCESS")) {
-                    socket.close();
-                    return true;
-                }
-                socket.close();
+            // Receive response from the FullNode
+            String response = reader.readLine();
+            System.out.println("Response from full node: " + response); // Add logging
+
+            // Close the socket (optional)
+            socket.close();
+
+            // Check if the store operation was successful
+            if (response.equals("SUCCESS")) {
+                return true;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -146,6 +152,70 @@ public class TemporaryNode implements TemporaryNodeInterface {
         }
 
         return fullNodes;
+    }
+
+    public boolean notify(String nodeName, String nodeAddress) {
+        try {
+            Socket socket = new Socket(startingNodeAddress.split(":")[0], Integer.parseInt(startingNodeAddress.split(":")[1]));
+            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            // Send NOTIFY? command with the node name and address
+            writer.println("NOTIFY?");
+            writer.println(nodeName);
+            writer.println(nodeAddress);
+
+            // Receive response from the FullNode
+            String response = reader.readLine();
+            socket.close();
+
+            return response.equals("NOTIFIED");
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public String getNearestNodes(String hashIDString) {
+        try {
+            byte[] hashID = hexStringToByteArray(hashIDString);
+            List<NodeInfo> closestNodes = findClosestNodes(hashID);
+            StringBuilder nearestNodesBuilder = new StringBuilder();
+            for (NodeInfo nodeInfo : closestNodes) {
+                nearestNodesBuilder.append("Node Name: ").append(nodeInfo.getNodeName()).append("\n");
+                nearestNodesBuilder.append("Node Address: ").append(nodeInfo.getNodeAddress()).append("\n\n");
+            }
+            return nearestNodesBuilder.toString();
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid hash ID format.");
+            return null;
+        }
+    }
+
+    private byte[] hexStringToByteArray(String hexString) {
+        int len = hexString.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+                    + Character.digit(hexString.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    public List<NodeInfo> findClosestNodes(byte[] hashID) {
+        List<NodeInfo> closestNodes = new ArrayList<>();
+        int minDistance = Integer.MAX_VALUE;
+
+        for (Map.Entry<Integer, List<NodeInfo>> entry : networkMap.entrySet()) {
+            int distance = entry.getKey();
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestNodes = entry.getValue();
+            }
+        }
+
+        return closestNodes;
     }
 
     private boolean isFullNode(String nodeName, String nodeAddress) {

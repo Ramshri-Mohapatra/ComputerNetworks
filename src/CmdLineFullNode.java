@@ -38,6 +38,7 @@ public class CmdLineFullNode {
 
 		// Become part of the network
 		fn.handleIncomingConnections(startingNodeName, startingNodeAddress);
+        System.out.println("done");
 		
 	    } else {
 		System.err.println("Could not listen for incoming connections");

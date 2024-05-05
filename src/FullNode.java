@@ -108,7 +108,7 @@ public class FullNode implements FullNodeInterface {
                 Socket clientSocket = serverSocket.accept();
                 // Send confirmation message to the client
                 PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true);
-                writer.println("START"); // Sending START message to confirm connection
+                //writer.println("START"); // Sending START message to confirm connection
                 new Thread(new ClientHandler(clientSocket, startingNodeName, startingNodeAddress)).start();
             }
         } catch (IOException e) {
@@ -131,7 +131,6 @@ public class FullNode implements FullNodeInterface {
             try {
                 reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 writer = new PrintWriter(clientSocket.getOutputStream(), true);
-                writer.println("START 1 " + startingNodeName);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -146,6 +145,8 @@ public class FullNode implements FullNodeInterface {
                     if (message.equals("END")) {
                         clientSocket.close();
                         break;
+                    } else if (message.startsWith("START")) {
+                        handleStartRequest(message);
                     } else if (message.startsWith("PUT?")) {
                         handlePutRequest(message);
                     } else if (message.startsWith("GET?")) {
@@ -167,20 +168,31 @@ public class FullNode implements FullNodeInterface {
             }
         }
 
+        private void handleStartRequest(String message) {
+            writer.println("START 1 " + startingNodeName);
+        }
+
         private void handlePutRequest(String message) throws IOException {
+            System.out.println(message);
             String[] parts = message.split(" ");
             int keyLines = Integer.parseInt(parts[1]);
             int valueLines = Integer.parseInt(parts[2]);
 
+            System.out.println("Reading key lines:");
             StringBuilder keyBuilder = new StringBuilder();
             for (int i = 0; i < keyLines; i++) {
-                keyBuilder.append(reader.readLine()).append("\n");
+                String line = reader.readLine();
+                System.out.println(line);
+                keyBuilder.append(line).append("\n");
             }
             String key = keyBuilder.toString();
 
+            System.out.println("Reading value lines:");
             StringBuilder valueBuilder = new StringBuilder();
-            for (int i = 0; i < valueLines; i++) {
-                valueBuilder.append(reader.readLine()).append("\n");
+            for (int i = 0; i <= valueLines; i++) {
+                String line = reader.readLine();
+                System.out.println(line);
+                valueBuilder.append(line).append("\n");
             }
             String value = valueBuilder.toString();
 
@@ -229,6 +241,7 @@ public class FullNode implements FullNodeInterface {
         byte[] keyHashID = null;
         try {
             keyHashID = HashID.computeHashID(key + "\n");
+            System.out.println("Computed hash ID for key: " + Arrays.toString(keyHashID));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -236,7 +249,9 @@ public class FullNode implements FullNodeInterface {
         List<NodeInfo> closestNodes = findClosestNodes(keyHashID);
 
         for (NodeInfo nodeInfo : closestNodes) {
+            System.out.println("Checking node: " + nodeInfo.getNodeName());
             if (Arrays.equals(nodeInfo.getHashID(), startingNodeHashID)) {
+                System.out.println("Found matching node: " + nodeInfo.getNodeName());
                 return true;
             }
         }
@@ -296,7 +311,15 @@ public class FullNode implements FullNodeInterface {
     private String readLines(BufferedReader reader, int numLines) throws IOException {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < numLines; i++) {
-            sb.append(reader.readLine()).append("\n");
+            String line = reader.readLine();
+            if (line != null) {
+                sb.append(line).append("\n");
+            } else {
+                // Handle the case where the end of the stream is reached unexpectedly
+                // You can throw an exception or return null as per your application's requirements
+                // For simplicity, let's return an empty string
+                return "";
+            }
         }
         return sb.toString();
     }

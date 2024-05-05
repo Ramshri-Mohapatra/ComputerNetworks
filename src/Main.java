@@ -73,7 +73,9 @@ public class Main {
                     valueBuilder.append(scanner.nextLine()).append("\n");
                 }
                 String value = valueBuilder.toString();
+                System.out.println(value);
 
+                // Call the store method of TemporaryNode
                 boolean success = tempNode.store(key, value);
                 if (success) {
                     System.out.println("Value stored successfully.");
@@ -90,11 +92,36 @@ public class Main {
                 } else {
                     System.out.println("Value not found.");
                 }
-            } else if (command.equals("END")) {
+
+                // GET command handling
+            } else if (command.equals("NOTIFY")) {
+                System.out.println("Enter node name:");
+                String nodeName = scanner.nextLine();
+                System.out.println("Enter node address:");
+                String nodeAddress = scanner.nextLine();
+
+                boolean success = tempNode.notify(nodeName, nodeAddress);
+                if (success) {
+                    System.out.println("Notification sent successfully.");
+                } else {
+                    System.out.println("Failed to send notification.");
+                }
+            } else if (command.equals("NEAREST")) {
+                System.out.println("Enter hash ID (in hex format):");
+                String hashID = scanner.nextLine();
+
+                String nearestNodes = tempNode.getNearestNodes(hashID);
+                if (nearestNodes != null) {
+                    System.out.println("Nearest nodes:");
+                    System.out.println(nearestNodes);
+                } else {
+                    System.out.println("Failed to retrieve nearest nodes.");}
+                }else if (command.equals("END")) {
                 break;
             } else {
                 System.out.println("Invalid command.");
             }
         }
     }
+
 }
